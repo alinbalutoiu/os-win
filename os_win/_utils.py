@@ -16,12 +16,16 @@
 
 import netaddr
 
+from oslo_concurrency import lockutils
 from oslo_concurrency import processutils
 from oslo_log import log as logging
 
 from os_win._i18n import _LE
 
 LOG = logging.getLogger(__name__)
+
+
+synchronized = lockutils.synchronized_with_prefix('oswin-')
 
 
 def execute(*cmd, **kwargs):
