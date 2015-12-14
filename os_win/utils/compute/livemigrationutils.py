@@ -81,11 +81,11 @@ class LiveMigrationUtils(object):
         (job_path, ret_val) = vs_man_svc.DestroySystem(planned_vm.path_())
         self._jobutils.check_ret_val(ret_val, job_path)
 
-    def _get_planed_vms(self, conn_v2, vm):
+    def _get_planned_vms(self, conn_v2, vm):
         return conn_v2.Msvm_PlannedComputerSystem(Name=vm.Name)
 
     def _destroy_existing_planned_vms(self, conn_v2, vm):
-        planned_vms = self._get_planed_vms(conn_v2, vm)
+        planned_vms = self._get_planned_vms(conn_v2, vm)
         for planned_vm in planned_vms:
             self._destroy_planned_vm(conn_v2, planned_vm)
 
@@ -207,7 +207,7 @@ class LiveMigrationUtils(object):
         rmt_ip_addr_list = self._get_ip_address_list(conn_v2_remote,
                                                      dest_host)
 
-        planned_vms = self._get_planed_vms(conn_v2_remote, vm)
+        planned_vms = self._get_planned_vms(conn_v2_remote, vm)
         if len(planned_vms) > 1:
             err_msg = _("Multiple planned VMs were found for VM %(vm_name)s "
                         "on host %(dest_host)s")

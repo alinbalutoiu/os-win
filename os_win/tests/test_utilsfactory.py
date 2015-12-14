@@ -28,6 +28,7 @@ from os_win.utils.compute import vmutils
 from os_win.utils import hostutils
 from os_win.utils.network import networkutils
 from os_win.utils import pathutils
+from os_win.utils.storage.initiator import fc_utils
 from os_win.utils.storage.initiator import iscsi_cli_utils
 from os_win.utils.storage.initiator import iscsi_wmi_utils
 from os_win.utils.storage import smbutils
@@ -111,3 +112,9 @@ class TestHyperVUtilsFactory(base.BaseTestCase):
 
         actual_class = type(utilsfactory.get_iscsi_initiator_utils())
         self.assertEqual(expected_class, actual_class)
+
+    @mock.patch.object(fc_utils.FCUtils, '__init__',
+                       lambda *args, **kwargs: None)
+    def test_get_fc_utils(self):
+        self._check_get_class(expected_class=fc_utils.FCUtils,
+                              class_type='fc_utils')
