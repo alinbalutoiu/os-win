@@ -20,6 +20,7 @@ Based on the "root/virtualization/v2" namespace available starting with
 Hyper-V Server / Windows Server 2012.
 """
 
+import re
 import sys
 import uuid
 
@@ -102,6 +103,9 @@ class VMUtils(object):
             if hostutils.HostUtils().check_min_windows_version(10, 0):
                 self._SERIAL_PORT_SETTING_DATA_CLASS = (
                     "Msvm_SerialPortSettingData")
+
+        # Physical device names look like \\.\PHYSICALDRIVE1
+        self._phys_dev_name_regex = re.compile(r'\\\\.*\\[\w]*([\d])')
 
     def _init_hyperv_wmi_conn(self, host):
         self._conn = wmi.WMI(moniker='//%s/root/virtualization/v2' % host)
@@ -423,7 +427,7 @@ class VMUtils(object):
         self._jobutils.add_virt_resource(scsicontrl, vm)
 
     def attach_volume_to_controller(self, vm_name, controller_path, address,
-                                    mounted_disk_path):
+                                    mounted_disk_path, serial=None):
         """Attach a volume to a controller."""
 
         vm = self._lookup_vm_check(vm_name)
@@ -435,13 +439,35 @@ class VMUtils(object):
         diskdrive.Parent = controller_path
         diskdrive.HostResource = [mounted_disk_path]
 
-        self._jobutils.add_virt_resource(diskdrive, vm)
+        diskdrive_path = self._jobutils.add_virt_resource(diskdrive, vm)[0]
+
+        if serial:
+            # Apparently this can't be set when the resource is added.
+            diskdrive = wmi.WMI(moniker=diskdrive_path)
+            diskdrive.ElementName = serial
+            self._jobutils.modify_virt_resource(diskdrive)
+
+    def get_vm_physical_disk_mapping(self, vm_name):
+        mapping = {}
+        physical_disks = self.get_vm_disks(vm_name)[1]
+        for diskdrive in physical_disks:
+            mapping[diskdrive.ElementName] = dict(
+                resource_path=diskdrive.Path_(),
+                mounted_disk_path=diskdrive.HostResource[0])
+        return mapping
 
     def _get_disk_resource_address(self, disk_resource):
         return disk_resource.AddressOnParent
 
+    def set_disk_host_res(self, disk_res_path, mounted_disk_path):
+        diskdrive = wmi.WMI(moniker=disk_res_path)
+        diskdrive.HostResource = [mounted_disk_path]
+        self._jobutils.modify_virt_resource(diskdrive)
+
     def set_disk_host_resource(self, vm_name, controller_path, address,
                                mounted_disk_path):
+        # TODO(lpetrut): remove this method after the patch fixing
+        # swapped disks after host reboot merges in Nova.
         disk_found = False
         vm = self._lookup_vm_check(vm_name)
         (disk_resources, volume_resources) = self._get_vm_disks(vm)
@@ -542,6 +568,10 @@ class VMUtils(object):
                 [c for c in self._get_disk_resource_disk_path(disk_resource)])
 
         return (disk_files, volume_drives)
+
+    def get_vm_disks(self, vm_name):
+        vm = self._lookup_vm_check(vm_name)
+        return self._get_vm_disks(vm)
 
     def _get_vm_disks(self, vm):
         vmsettings = vm.associators(
@@ -675,6 +705,14 @@ class VMUtils(object):
             if disk_resource.HostResource:
                 if disk_resource.HostResource[0].lower() == disk_path.lower():
                     return disk_resource
+
+    def get_device_number_from_device_name(self, device_name):
+        matches = self._phys_dev_name_regex.findall(device_name)
+        if matches:
+            return matches[0]
+        else:
+            err_msg = _("Could not find device number for device: %s")
+            raise exceptions.HyperVException(err_msg % device_name)
 
     def get_mounted_disk_by_drive_number(self, device_number):
         mounted_disks = self._conn.query("SELECT * FROM Msvm_DiskDrive "
