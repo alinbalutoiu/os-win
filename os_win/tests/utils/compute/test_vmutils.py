@@ -183,6 +183,17 @@ class VMUtilsTestCase(base.BaseTestCase):
         self.assertEqual([self._FAKE_VHD_PATH], disk_files)
         self.assertEqual([self._FAKE_VOLUME_DRIVE_PATH], volume_drives)
 
+    @mock.patch.object(vmutils.VMUtils, '_get_vm_disks')
+    def test_get_vm_disks_by_instance_name(self, mock_get_vm_disks):
+        self._lookup_vm()
+        mock_get_vm_disks.return_value = mock.sentinel.vm_disks
+
+        vm_disks = self._vmutils.get_vm_disks(self._FAKE_VM_NAME)
+
+        self._vmutils._lookup_vm_check.assert_called_once_with(
+            self._FAKE_VM_NAME)
+        self.assertEqual(mock.sentinel.vm_disks, vm_disks)
+
     def test_get_vm_disks(self):
         mock_vm = self._lookup_vm()
         mock_vmsettings = [mock.MagicMock()]
@@ -427,6 +438,32 @@ class VMUtilsTestCase(base.BaseTestCase):
 
         getattr(mock_svc, self._DESTROY_SYSTEM).assert_called_with(
             self._FAKE_VM_PATH)
+
+    def test_get_vm_physical_disk_mapping(self):
+        self._lookup_vm()
+        mock_rasds = self._create_mock_disks()
+        expected_mapping = {
+            mock_rasds[1].ElementName: {
+                'resource_path': mock_rasds[1].Path_.return_value,
+                'mounted_disk_path': mock_rasds[1].HostResource[0]}
+                       }
+
+        self._vmutils._get_vm_disks = mock.MagicMock(
+            return_value=([mock_rasds[0]], [mock_rasds[1]]))
+
+        result = self._vmutils.get_vm_physical_disk_mapping(self._FAKE_VM_NAME)
+        self.assertEqual(expected_mapping, result)
+
+    @mock.patch.object(vmutils, 'wmi', create=True)
+    def test_set_disk_host_res(self, mock_wmi):
+        mock_diskdrive = mock.MagicMock()
+        mock_wmi.WMI.return_value = mock_diskdrive
+
+        self._vmutils.set_disk_host_res(self._FAKE_RES_PATH,
+                                        self._FAKE_MOUNTED_DISK_PATH)
+
+        self._vmutils._jobutils.modify_virt_resource.assert_called_once_with(
+            mock_diskdrive)
 
     def test_set_disk_host_resource(self):
         self._lookup_vm()
