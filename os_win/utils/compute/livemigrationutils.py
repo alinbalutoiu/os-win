@@ -89,8 +89,7 @@ class LiveMigrationUtils(object):
         for planned_vm in planned_vms:
             self._destroy_planned_vm(conn_v2, planned_vm)
 
-    def _create_planned_vm(self, vmutils_remote,
-                           conn_v2_local, conn_v2_remote,
+    def _create_planned_vm(self, conn_v2_local, conn_v2_remote,
                            vm, ip_addr_list, dest_host):
         # Staged
         vsmsd = conn_v2_remote.query("select * from "
@@ -239,8 +238,7 @@ class LiveMigrationUtils(object):
         disk_paths = self._get_disk_data(vm_name, vmutils_remote,
                                          disk_path_mapping)
 
-        planned_vm = self._create_planned_vm(vmutils_remote,
-                                             conn_v2_local,
+        planned_vm = self._create_planned_vm(conn_v2_local,
                                              conn_v2_remote,
                                              vm, ip_addr_list,
                                              dest_host)

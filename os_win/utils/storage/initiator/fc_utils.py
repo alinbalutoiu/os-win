@@ -164,3 +164,6 @@ class FCUtils(object):
         # TODO(lpetrut): find a better way to do this.
         cmd = ("cmd", "/c", "echo", "rescan", "|", "diskpart.exe")
         _utils.execute(*cmd)
+
+    def refresh_hba_configuration(self):
+        hbaapi.HBA_RefreshAdapterConfiguration()
