@@ -19,7 +19,6 @@ import sys
 import textwrap
 
 if sys.platform == 'win32':
-    import wmi
     hbaapi = ctypes.cdll.hbaapi
 
 from os_win._i18n import _
@@ -34,8 +33,6 @@ HBA_STATUS_ERROR_MORE_DATA = 7
 
 class FCUtils(object):
     def __init__(self):
-        self._conn_wmi = wmi.WMI(moniker='/root/wmi')
-        self._conn_cimv2 = wmi.WMI(moniker='/root/cimv2')
         self._win32_utils = win32utils.Win32Utils()
 
     def _run_and_check_output(self, *args, **kwargs):
