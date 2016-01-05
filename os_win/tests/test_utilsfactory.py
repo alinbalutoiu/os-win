@@ -29,7 +29,7 @@ from os_win.utils import hostutils
 from os_win.utils.network import networkutils
 from os_win.utils import pathutils
 from os_win.utils.storage.initiator import iscsi_cli_utils
-from os_win.utils.storage.initiator import iscsi_wmi_utils
+from os_win.utils.storage.initiator import iscsi_utils
 from os_win.utils.storage import smbutils
 from os_win.utils.storage.virtdisk import vhdutils
 from os_win import utilsfactory
@@ -94,9 +94,11 @@ class TestHyperVUtilsFactory(test_base.OsWinBaseTestCase):
         self._check_get_class(expected_class=rdpconsoleutils.RDPConsoleUtils,
                               class_type='rdpconsoleutils')
 
-    def test_get_iscsi_initiator_utils(self):
+    @mock.patch.object(iscsi_utils.ISCSIInitiatorUtils,
+                       '_refresh_used_portals')
+    def test_get_iscsi_initiator_utils(self, mock_refresh_used_portals):
         self._test_get_initiator_utils(
-            expected_class=iscsi_wmi_utils.ISCSIInitiatorWMIUtils)
+            expected_class=iscsi_utils.ISCSIInitiatorUtils)
 
     def test_get_iscsi_initiator_utils_force_v1(self):
         self._test_get_initiator_utils(

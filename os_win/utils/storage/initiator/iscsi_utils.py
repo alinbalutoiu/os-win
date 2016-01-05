@@ -16,13 +16,14 @@
 
 import collections
 import ctypes
+import functools
 import inspect
 import sys
 
 if sys.platform == 'win32':
     iscsidsc = ctypes.windll.iscsidsc
-    from os_win.utils.storage.initiator import (
-        iscsidsc_structures as iscsi_struct)
+from os_win.utils.storage.initiator import (
+    iscsidsc_structures as iscsi_struct)
 
 import decorator
 from oslo_log import log as logging
@@ -43,35 +44,37 @@ ERROR_INSUFFICIENT_BUFFER = 0x7a
 
 def ensure_buff_and_retrieve_items(struct_type=None,
                                    func_requests_buff_sz=True,
-                                   parse_output=True,
-                                   buff_type = ctypes.c_ubyte):
-    @decorator.decorator
-    def wrapper(f, *args, **kwargs):
-        call_args = inspect.getcallargs(f, *args, **kwargs)
-        call_args['element_count'] = ctypes.c_ulong(0)
-        call_args['buff'] = (buff_type * 0)()
-        call_args['buff_size'] = ctypes.c_ulong(0)
+                                   parse_output=False,
+                                   buff_type=ctypes.c_ubyte):
+    def wrapper(f):
+        @functools.wraps(f)
+        def inner(*args, **kwargs):
+            call_args = inspect.getcallargs(f, *args, **kwargs)
+            call_args['element_count'] = ctypes.c_ulong(0)
+            call_args['buff'] = (buff_type * 0)()
+            call_args['buff_size'] = ctypes.c_ulong(0)
 
-        while True:
-            try:
-                ret_val = f(**call_args)
-                if parse_output:
-                    return _get_items_from_buff(
-                        call_args['buff'],
-                        struct_type,
-                        call_args['element_count'].value)
-                else:
-                    return ret_val
-            except exceptions.Win32Exception as ex:
-                if (ex.error_code & 0xFFFF) == ERROR_INSUFFICIENT_BUFFER:
-                    if func_requests_buff_sz:
-                        buff_size = call_args['buff_size'].value
+            while True:
+                try:
+                    ret_val = f(**call_args)
+                    if parse_output:
+                        return _get_items_from_buff(
+                            call_args['buff'],
+                            struct_type,
+                            call_args['element_count'].value)
                     else:
-                        buff_size = (ctypes.sizeof(struct_type) *
-                                     call_args['element_count'].value)
-                    call_args['buff'] = (buff_type * buff_size)()
-                else:
-                    raise
+                        return ret_val
+                except exceptions.Win32Exception as ex:
+                    if (ex.error_code & 0xFFFF) == ERROR_INSUFFICIENT_BUFFER:
+                        if func_requests_buff_sz:
+                            buff_size = call_args['buff_size'].value
+                        else:
+                            buff_size = (ctypes.sizeof(struct_type) *
+                                         call_args['element_count'].value)
+                        call_args['buff'] = (buff_type * buff_size)()
+                    else:
+                        raise
+        return inner
     return wrapper
 
 
@@ -207,7 +210,6 @@ class ISCSIInitiatorUtils(object):
             forced_update,
             ctypes.byref(buff_size),
             ctypes.byref(buff))
-
         tgt_list = buff[:buff_size.value].strip('\x00').split('\x00')
         return tgt_list
 

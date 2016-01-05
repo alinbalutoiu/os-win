@@ -36,9 +36,12 @@ class Win32UtilsTestCase(base.BaseTestCase):
         # passed by reference.
         self._ctypes.byref = lambda x: (x, "byref")
 
+        self.patch_ctypes = mock.patch.multiple(
+            win32utils, ctypes=self._ctypes)
+        self.patch_ctypes.start()
         mock.patch.multiple(win32utils,
-                            ctypes=self._ctypes, kernel32=mock.DEFAULT,
-                            wintypes=mock.DEFAULT, create=True).start()
+                            kernel32=mock.DEFAULT, wintypes=mock.DEFAULT,
+                            create=True).start()
 
     @mock.patch.object(win32utils.Win32Utils, 'get_error_message')
     @mock.patch.object(win32utils.Win32Utils, 'get_last_error')
@@ -47,6 +50,7 @@ class Win32UtilsTestCase(base.BaseTestCase):
                                    **kwargs):
         mock_func = mock.Mock()
         mock_func.return_value = ret_val
+        self.patch_ctypes.stop()
 
         if expected_exc:
             self.assertRaises(expected_exc,
@@ -94,7 +98,7 @@ class Win32UtilsTestCase(base.BaseTestCase):
             expected_exc=exceptions.Win32Exception)
 
         mock_get_err_msg.assert_called_once_with(
-            mock_get_last_err.return_value)
+            win32utils.ctypes.c_ulong(mock_get_last_err).value)
 
     def test_run_and_check_output_ignored_error(self):
         ret_val = 1
